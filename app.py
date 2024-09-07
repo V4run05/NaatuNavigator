@@ -119,16 +119,5 @@ def ShowRoute():
     bus_stops_on_route = session.get('bus_stops_on_route', [])
     return render_template('Routes.html',route=route_geometry, bus_stops=bus_stops_on_route)
 
-@app.route('/autocomplete')
-def autocomplete():
-    query = request.args.get('query')
-    if query:
-        url = f'https://api.tomtom.com/search/2/search/{query}.json?key={api_key}'
-        response = requests.get(url)
-        data = response.json()
-        # Return the data as JSON, which the frontend will use to display suggestions
-        return data
-    return {'results': []}  # Return an empty result if no query
-
 if __name__ == '__main__':
     app.run(debug=True)

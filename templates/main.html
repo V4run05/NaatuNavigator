@@ -4,71 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
-    <style>
-        ul {
-            list-style-type: none;
-            padding: 0;
-            border: 1px solid #ccc;
-            max-width: 200px;
-            background-color: white;
-            position: absolute;  /* Ensures it stays under the input box */
-            z-index: 1000;
-        }
-        li {
-            padding: 8px;
-            cursor: pointer;
-        }
-        li:hover {
-            background-color: #f0f0f0;
-        }
-        input {
-            width: 200px;
-            padding: 8px;
-            margin-bottom: 10px;
-        }
-    </style>
-
     <title>Naatu Navigator</title>
 </head>
 <body>
     <h1>Naatu Navigator</h1>
 
-    <form id="searchForm">
-        <label for="start_loc">Start Location:</label>
-        <input type="text" id="start_loc" name="start_loc" oninput="getSuggestions('start_loc')" autocomplete="off">
-        <ul id="start_loc_suggestions"></ul>
-        
-        <label for="end_loc">End Location:</label>
-        <input type="text" id="end_loc" name="end_loc" oninput="getSuggestions('end_loc')" autocomplete="off">
-        <ul id="end_loc_suggestions"></ul>
-      
-        <button type="submit">Get Route</button>
-    </form>
-
-    <script>
-        function getAutocomplete(inputId) {
-            const query = document.getElementById(inputId).value;
-            if (query.length > 2) {
-                fetch(`/autocomplete?query=${query}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        const suggestionsList = document.getElementById(inputId + '_suggestions');
-                        suggestionsList.innerHTML = "";  // Clear previous suggestions
-                        data.results.forEach(result => {
-                            const listItem = document.createElement('li');
-                            listItem.innerText = result.address.freeformAddress;
-                            listItem.onclick = () => {
-                                document.getElementById(inputId).value = result.address.freeformAddress;
-                                document.getElementById(inputId + '_suggestions').innerHTML = "";  // Clear suggestions after selection
-                            };
-                            suggestionsList.appendChild(listItem);
-                        });
-                    });
-            }
-        }
-        </script>
+    <div class=""form></div>
+        <form action="/" method="POST">
+            <h2>Search</h2>
+            Starting Point <input type="text" name="start_loc" id="start_loc">
+            <br>
+            Destination <input type="text" name="end_loc" id="end_loc">
+            <br>
+            <a href="/route/">
+                <input type="submit" value="Search">
+            </a>
+        </form>
+    </div>
 
 </body>
 </html>
