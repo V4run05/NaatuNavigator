@@ -1,80 +1,52 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
 import json
 from datetime import datetime
 import requests
 from pprint import pprint
-# Load the GeoJSON file
-with open(r"C:\Varun\VSCode\Projects\Python\Hackathon\OpenStreetMap\chennai_bus_stops.geojson", 'r', encoding='utf-8') as f:
-    geojson_data = json.load(f)
-
-# Extract bus stop coordinates and names
-bus_stops = []
-for feature in geojson_data['features']:
-    # GeoJSON stores coordinates in [longitude, latitude] format
-    coordinates = feature['geometry']['coordinates']
-    lon, lat = coordinates[0], coordinates[1]
-
-    # Extract the name of the bus stop if available
-    name = feature['properties'].get('name', 'Unnamed Stop')
-
-    # Store the bus stop data
-    bus_stops.append({
-        'name': name,
-        'lat': lat,
-        'lng': lon
-    })
+import math
 
 #dbms
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
-db = SQLAlchemy(app)
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+#db = SQLAlchemy(app)
+app.secret_key = 'secret_key'
 api_key = 'j4t0mdWGaE9dhNXBd3FyZaWQiY7yVKYK'
 
-class BusDBMS(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    start = db.Column(db.String(200), nullable=False)
-    end = db.Column(db.String(200), nullable=False)
-
-    def __repr__(self):
-        return '<Task %r>' % self.id
-
-with app.app_context():
-        db.create_all()
-
 route_geometry=[]
+bus_stops_on_route=[]
 
+def GetCoordinates(location):
+    url = f'https://api.tomtom.com/search/2/geocode/{location}.json?key={api_key}'
+    response = requests.get(url)
+    data = response.json()
+    if data['results']:
+        latitude = data['results'][0]['position']['lat']
+        longitude = data['results'][0]['position']['lon']
+        #print(f"Starting Point => Latitude: {start_lat}, Longitude: {start_lon}")
+        return latitude,longitude
+    else:
+        print("Place not found.")
+        return 'No Results Found'
+
+
+def is_close(lat1, lon1, lat2, lon2, threshold=0.0001):
+    """Check if two latitude/longitude points are within a given threshold."""
+    return math.isclose(lat1, lat2, abs_tol=threshold) and math.isclose(lon1, lon2, abs_tol=threshold)
+
+route_geometry = []
 @app.route('/', methods=['POST','GET'])
 def index(): 
     if request.method == "POST":
         #bus_id = request.form['bus_id']
         start_loc = request.form['start_loc']
         end_loc = request.form['end_loc']
-        bus_search = request.form['bus_search']
-        new_bus = BusDBMS(start=start_loc, end=end_loc)
-        buses = BusDBMS.query.all()
-        bus_start=None
-        bus_end=None
-        start_lat=0
-        start_lon=0
-        end_lat=0
-        end_lon=0
-        for bus in buses:
-            if(bus.id == int(bus_search)):
-                bus_start = bus.start
-                bus_end = bus.end
-                break
-        else:
-            print('There is no proper start or stop information')
-        for bus in bus_stops:
-            if bus['name'] == bus_start:
-                start_lat = bus['lat']
-                start_lon = bus['lng']
-            elif bus['name'] == bus_end:
-                end_lat = bus['lat']
-                end_lon = bus['lng']
+        start_lat = GetCoordinates(start_loc)[0]
+        start_lon = GetCoordinates(start_loc)[1]
+        end_lat = GetCoordinates(end_loc)[0]
+        end_lon = GetCoordinates(end_loc)[1]
 
-        url = f'https://api.tomtom.com/routing/1/calculateRoute/{start_lat},{start_lon}:{end_lat},{end_lon}/json?key={api_key}'
+        url = f'https://api.tomtom.com/routing/1/calculateRoute/{start_lat},{start_lon}:{end_lat},{end_lon}/json?key={api_key}&travelMode=bus'
         response = requests.get(url)
         route_data = response.json()
 
@@ -85,32 +57,78 @@ def index():
             distance = route_summary['lengthInMeters'] / 1000  # Distance in kilometers
             duration = route_summary['travelTimeInSeconds'] / 60  # Duration in minutes
 
-            pprint(route)
-            print(f"Distance: {distance:.2f} km")
-            print(f"Duration: {duration:.2f} minutes")
+            #pprint(route)
+            #print(f"Distance: {distance:.2f} km")
+            #print(f"Duration: {duration:.2f} minutes")
 
             route_geometry = route['legs'][0]['points']
+            session['route_geometry'] = route_geometry
 
         else:   
             print(f"Error: {response.status_code} - {response.reason}")
+        #return redirect('/route/')
+        #Step 2: Search for bus stops along the route using the Search API
+        # if route_data['routes']:
+        #     bus_stops_on_route = []
 
-        try:
-            db.session.add(new_bus)
-            db.session.commit()
-            return redirect('/')
-        except:
-            return 'There was an issue adding the bus'
+        #     for leg in route_data['routes'][0]['legs']:
+        #         for point in leg['points']:
+        #             lat = point['latitude']
+        #             lon = point['longitude']
+
+        #             # Step 3: Search for bus stops near each route point with a small radius
+        #             search_url = f"https://api.tomtom.com/search/2/poiSearch/bus%20stop.json?key={api_key}&lat={lat}&lon={lon}&radius=50&categorySet=9609"
+        #             search_response = requests.get(search_url)
+        #             if search_response.status_code == 200:
+        #                 search_data = search_response.json()
+
+        #                 pprint(search_data)
+        #                 #Process the data
+        #                 #Step 4: Check if the bus stops are exactly on the route
+        #                 for result in search_data['results']:
+        #                     bus_stop_lat = result['position']['lat']
+        #                     bus_stop_lon = result['position']['lon']
+                            
+        #                     if is_close(lat, lon, bus_stop_lat, bus_stop_lon):
+        #                         bus_stop_name = result['poi']['name']
+        #                         bus_stops_on_route.append({
+        #                             "name": bus_stop_name,
+        #                             "lat": bus_stop_lat,
+        #                             "lon": bus_stop_lon
+        #                         })
+        #             else:
+        #                 print(f"Error: {response.status_code} - {response.reason}")
+
+        #     #Output the bus stops exactly on the route
+        #     if bus_stops_on_route:
+        #         for stop in bus_stops_on_route:
+        #             print(f"Bus Stop: {stop['name']}, Lat: {stop['lat']}, Lon: {stop['lon']}")
+        #     else:
+        #         print("No bus stops found on the route.")
+        # else:
+        #     print("No route found.")
+
+        # session['bus_stops_on_route'] = bus_stops_on_route
+        return redirect('/route/')
     else:
-        return render_template('map.html', bus_stops=bus_stops)
+        return render_template('main.html')
 
-@app.route('/ViewAllBuses/')
-def ShowDatabase():
-    buses = BusDBMS.query.all()
-    return render_template('BusDatabase.html',buses=buses)
+@app.route('/route/')
+def ShowRoute():
+    route_geometry = session.get('route_geometry', [])
+    bus_stops_on_route = session.get('bus_stops_on_route', [])
+    return render_template('Routes.html',route=route_geometry, bus_stops=bus_stops_on_route)
 
-#@app.route('/route/')
-#def ShowRoute():
-    #++++return render_template('Routes.html',bus_stops=bus_stops)
+@app.route('/autocomplete')
+def autocomplete():
+    query = request.args.get('query')
+    if query:
+        url = f'https://api.tomtom.com/search/2/search/{query}.json?key={api_key}'
+        response = requests.get(url)
+        data = response.json()
+        # Return the data as JSON, which the frontend will use to display suggestions
+        return data
+    return {'results': []}  # Return an empty result if no query
 
 if __name__ == '__main__':
     app.run(debug=True)

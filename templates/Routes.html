@@ -32,21 +32,12 @@
             maxZoom: 18,
         }).addTo(map);
 
-        // List of bus stops (from Flask server-side)
-        var busStops = JSON.parse('{{ bus_stops|tojson }}');
-
-        // Add markers for each bus stop
-        busStops.forEach(function(stop) {
-            var marker = L.marker([stop.lat, stop.lng]).addTo(map);
-            marker.bindPopup(`<b>${stop.name}</b><br>Lat: ${stop.lat}<br>Lng: ${stop.lng}`);
-        });
-
         // Get route data from Flask
         var route = JSON.parse('{{ route|tojson }}'); // This should be an array of coordinates
 
         // Convert route geometry to LatLng array
         var latlngs = route.map(function(coord) {
-            return [coord.lat, coord.lon];
+            return [coord.latitude, coord.longitude];
         });
 
         // Plot the route on the map
@@ -55,9 +46,14 @@
         // Optionally fit the map bounds to the route
         map.fitBounds(polyline.getBounds());
 
-        // Optional: Automatically fit map to show all markers
-        //var bounds = new L.LatLngBounds(busStops.map(stop => [stop.lat, stop.lng]));
-        //map.fitBounds(bounds);
+         // List of bus stops (from Flask server-side)
+         var busStops = JSON.parse('{{ bus_stops|tojson }}');
+
+        // Add markers for each bus stop
+        busStops.forEach(function(stop) {
+            var marker = L.marker([stop.lat, stop.lon]).addTo(map);
+            marker.bindPopup(`<b>${stop.name}</b><br>Lat: ${stop.lat}<br>Lng: ${stop.lon}`);
+        });
     </script>
 
 </body>
